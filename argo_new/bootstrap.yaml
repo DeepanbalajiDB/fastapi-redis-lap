@@ -9,7 +9,7 @@ spec:
   source:
     repoURL: https://github.com/DeepanbalajiDB/fastapi-redis-lap.git
     targetRevision: HEAD
-    path: argo/apps
+    path: argo_new/apps
     directory:
       recurse: true
   destination:
