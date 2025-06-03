@@ -1,0 +1,185 @@
+---
+# Source: fastapi-redis/templates/redis-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fastapi-redis-redis-secret
+type: Opaque
+stringData:
+  REDIS_PASSWORD: redis-123
+---
+# Source: fastapi-redis/templates/redis-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fastapi-redis-redis-cm
+data:
+  REDIS_HOST: "myapp-redis"
+  REDIS_PORT: "6379"
+---
+# Source: fastapi-redis/templates/redis-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: myapp-redis-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: standard
+---
+# Source: fastapi-redis/templates/redis-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-redis
+spec:
+  selector:
+    app: myapp-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+# Source: fastapi-redis/templates/service.yaml
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: myapp-python-api
+# spec:
+#   selector:
+#     app: myapp-python-api
+#   type: ClusterIP
+#   ports:
+#     - port: 80
+#       targetPort: 8000
+apiVersion: v1
+kind: Service
+metadata:
+  name: fastapi-redis-fastapi
+spec:
+  selector:
+    app: fastapi-redis-fastapi
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: ClusterIP
+---
+# Source: fastapi-redis/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fastapi-redis-fastapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fastapi-redis-fastapi
+  template:
+    metadata:
+      labels:
+        app: fastapi-redis-fastapi
+    spec:
+      containers:
+        - name: python-api
+          image: "python-api:latest"
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: fastapi-redis-redis-cm
+                #myapp-redis-cm
+            - secretRef:
+                name: fastapi-redis-redis-secret
+                #myapp-redis-secret
+---
+# Source: fastapi-redis/templates/redis-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myapp-redis
+  template:
+    metadata:
+      labels:
+        app: myapp-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: redis-storage
+              mountPath: /data
+      volumes:
+        - name: redis-storage
+          persistentVolumeClaim:
+            claimName: myapp-redis-pvc
+---
+# Source: fastapi-redis/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fastapi-redis-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: localhost
+      http:
+        paths:
+          - path: /api/(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: fastapi-redis-fastapi
+                port:
+                  number: 80
+
+
+
+
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: fastapi-redis-ingress
+#   namespace: default
+#   # annotations:
+#   #   nginx.ingress.kubernetes.io/rewrite-target: /
+# spec:
+#   ingressClassName: nginx
+#   rules:
+#     - host: localhost
+#       http:
+#         paths:
+#           - path: /cache
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: fastapi-redis-fastapi
+#                 port:
+#                   number: 80
+#           - path: /secret-test
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: fastapi-redis-fastapi
+#                 port:
+#                   number: 80
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: fastapi-redis-fastapi
+#                 port:
+#                   number: 80
