@@ -1,20 +1,21 @@
-# argo/bootstrap.yaml
+# argo/apps/dev-fastapi-app.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: argo-bootstrap
+  name: fastapi-dev
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://github.com/DeepanbalajiDB/fastapi-redis-lap.git
     targetRevision: HEAD
-    path: argo/apps
-    directory:
-      recurse: true
+    path: charts
+    helm:
+      valueFiles:
+        - ../values-dev.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: argocd
+    namespace: dev
   syncPolicy:
     automated:
       prune: true
